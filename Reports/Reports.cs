@@ -297,11 +297,18 @@ namespace Reports
                     new SqlValue("Position", args.TPlayer.position.X + ":" + args.TPlayer.position.Y),
                     new SqlValue("Time", 120));
 
+            var id = await Db.RetrieveValues("Reports", "ReportID",
+                new SqlValue("UserID", args.Player.UserID),
+                new SqlValue("Message", message));
+
             if (success)
             {
                 args.Player.SendSuccessMessage("Successfully filed a report for player {0}.", ply.Name);
                 args.Player.SendSuccessMessage("Reason: {0}", message);
                 args.Player.SendSuccessMessage("Position: ({0},{1})", args.TPlayer.position.X, args.TPlayer.position.Y);
+                TShock.Players.Where(p => p.Group.HasPermission("reports.report.check"))
+                    .ForEach(p => p.SendWarningMessage("{0} has filed a new report. Use /creports {1} to view it.",
+                        args.Player.Name, id[0]));
             }
             else
                 args.Player.SendErrorMessage("Report was not successful. Please check logs for details");
