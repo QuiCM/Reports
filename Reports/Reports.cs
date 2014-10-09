@@ -274,25 +274,33 @@ namespace Reports
                 args.Player.SendErrorMessage("Invalid report. Usage: /report <player> [reason]");
                 return;
             }
-            var players =
-                TShock.Users.GetUsers().Where(p => p.Name.ToLower().StartsWith(args.Parameters[0].ToLower())).ToList();
-            if (players.Count < 1)
+            var user = TShock.Users.GetUsers()
+                .FirstOrDefault(u => u.Name.ToLower().StartsWith(args.Parameters[0].ToLower()));
+            if (user == null)
             {
-                args.Player.SendErrorMessage("No player matches found for '{0}'", args.Parameters[0]);
-                return;
+                var users =
+                    TShock.Users.GetUsers()
+                        .Where(u => u.Name.ToLower().StartsWith(args.Parameters[0].ToLower()))
+                        .ToList();
+                if (users.Count < 1)
+                {
+                    args.Player.SendErrorMessage("No player matches found for '{0}'", args.Parameters[0]);
+                    return;
+                }
+                if (users.Count > 1)
+                {
+                    TShock.Utils.SendMultipleMatchError(args.Player, users.Select(u => u.Name));
+                    return;
+                }
+                user = users[0];
             }
-            if (players.Count > 1)
-            {
-                TShock.Utils.SendMultipleMatchError(args.Player, players.Select(p => p.Name));
-                return;
-            }
-            var ply = players[0];
+
             var message = args.Parameters.Count > 1 ? string.Join(" ", args.Parameters.Skip(1)) : "No reason defined";
 
             var success =
                 await Db.InsertValues("Reports", SqliteClause.IGNORE,
                     new SqlValue("UserID", args.Player.UserID),
-                    new SqlValue("ReportedID", ply.ID),
+                    new SqlValue("ReportedID", user.ID),
                     new SqlValue("Message", message),
                     new SqlValue("Position", args.TPlayer.position.X + ":" + args.TPlayer.position.Y),
                     new SqlValue("Time", 120));
@@ -303,7 +311,7 @@ namespace Reports
 
             if (success)
             {
-                args.Player.SendSuccessMessage("Successfully filed a report for player {0}.", ply.Name);
+                args.Player.SendSuccessMessage("Successfully filed a report for player {0}.", user.Name);
                 args.Player.SendSuccessMessage("Reason: {0}", message);
                 args.Player.SendSuccessMessage("Position: ({0},{1})", args.TPlayer.position.X, args.TPlayer.position.Y);
                 TShock.Players.Where(p => p.Group.HasPermission("reports.report.check"))
