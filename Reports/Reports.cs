@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Data;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Timers;
+using Mono.Data.Sqlite;
 using MySql.Data.MySqlClient;
 using Terraria;
 using TerrariaApi.Server;
 
-using TSDB;
 using TShockAPI;
 using TShockAPI.DB;
 using TShockAPI.Hooks;
@@ -16,7 +18,7 @@ namespace Reports
     [ApiVersion(1, 16)]
     public class Reports : TerrariaPlugin
     {
-        private static Database Db { get; set; }
+		private static Database Db { get; set; }
 
         private readonly Vector2[] _teleports = new Vector2[255];
         private Report[] _report = new Report[255];
@@ -51,59 +53,51 @@ namespace Reports
             base.Dispose(disposing);
         }
 
-        public override async void Initialize()
-        {
-            PlayerHooks.PlayerPostLogin += OnPlayerPostLogin;
-            ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
+		public override void Initialize()
+		{
+			PlayerHooks.PlayerPostLogin += OnPlayerPostLogin;
+			ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
 
-            var table = new DbSqlTable("Reports",
-                new DbSqlColumn("ReportID", MySqlDbType.Int32) {AutoIncrement = true, Primary = true},
-                new DbSqlColumn("UserID", MySqlDbType.Int32),
-                new DbSqlColumn("ReportedID", MySqlDbType.Int32),
-                new DbSqlColumn("Message", MySqlDbType.VarChar),
-                new DbSqlColumn("Position", MySqlDbType.VarChar),
-                new DbSqlColumn("Time", MySqlDbType.Int32));
+			Db = Database.InitDb("Reports");
 
-            Db = await TsDb.CreateDatabase("tshock/Reports.sqlite", new DbInfo(), table);
-
-            Commands.ChatCommands.Add(new Command("reports.report", Report, "report")
-            {
-                AllowServer = false,
-                HelpDesc = new[]
+			Commands.ChatCommands.Add(new Command("reports.report", Report, "report")
+			{
+				AllowServer = false,
+				HelpDesc = new[]
                 {
                     "Create an admin-viewable report for a player",
                     "Usage: /report <player> [reason]"
                 }
-            });
-            Commands.ChatCommands.Add(new Command("reports.report.check", CheckReports, "creport", "creports",
-                "checkreports")
-            {
-                HelpDesc = new[]
+			});
+			Commands.ChatCommands.Add(new Command("reports.report.check", CheckReports, "creport", "creports",
+				"checkreports")
+			{
+				HelpDesc = new[]
                 {
                     "View any reports filed by players",
                     "Usage: /creports [search|id|page <number>]"
                 }
-            });
-            Commands.ChatCommands.Add(new Command("reports.report.teleport", RTeleport, "rtp", "rteleport")
-            {
-                HelpDesc = new[]
+			});
+			Commands.ChatCommands.Add(new Command("reports.report.teleport", RTeleport, "rtp", "rteleport")
+			{
+				HelpDesc = new[]
                 {
                     "Teleports you to the location your last read report was created at",
                     "Usage: /rtp"
                 },
-                AllowServer = false
-            });
-            Commands.ChatCommands.Add(new Command("reports.report.delete", DeleteReports, "dreport", "dreports",
-                "deletereports")
-            {
-                HelpDesc = new[]
+				AllowServer = false
+			});
+			Commands.ChatCommands.Add(new Command("reports.report.delete", DeleteReports, "dreport", "dreports",
+				"deletereports")
+			{
+				HelpDesc = new[]
                 {
                     "Deletes a report, or a range of reports",
                     "Usage: /dreports id",
                     "Usage: /dreports id id2 id3 ... idn"
                 }
-            });
-        }
+			});
+		}
 
         private void OnGreetPlayer(GreetPlayerEventArgs args)
         {
@@ -117,7 +111,7 @@ namespace Reports
                 return;
 
             var reports = new List<Report>();
-            using (var reader = Db.db.QueryReader("SELECT * FROM Reports WHERE Time > 0"))
+            using (var reader = Db.QueryReader("SELECT * FROM Reports WHERE Time > 0"))
             {
                 while (reader.Read())
                 {
@@ -137,7 +131,7 @@ namespace Reports
             }
         }
 
-        private async void DeleteReports(CommandArgs args)
+        private void DeleteReports(CommandArgs args)
         {
             if (args.Parameters.Count < 1)
             {
@@ -155,8 +149,8 @@ namespace Reports
                     nonparsed++;
                     continue;
                 }
-                if (!await Db.ClearData("Reports", new SqlValue("ReportID", id)))
-                    failures.Add(id);
+                if (!Db.DeleteValue("ReportID", id))
+					failures.Add(id);
             }
             if (failures.Count > 0)
                 args.Player.SendErrorMessage("The following reports failed to be deleted: {0}",
@@ -181,7 +175,7 @@ namespace Reports
         private void CheckReports(CommandArgs args)
         {
             var reports = new List<Report>();
-            using (var reader = Db.db.QueryReader("SELECT * FROM Reports WHERE Time > 0"))
+            using (var reader = Db.QueryReader("SELECT * FROM Reports WHERE Time > 0"))
             {
                 while (reader.Read())
                 {
@@ -266,7 +260,7 @@ namespace Reports
             args.Player.SendWarningMessage("Use /rteleport to move to the location the report was made.");
         }
 
-        private async void Report(CommandArgs args)
+        private void Report(CommandArgs args)
         {
             //report player reason
             if (args.Parameters.Count < 1)
@@ -297,17 +291,21 @@ namespace Reports
 
             var message = args.Parameters.Count > 1 ? string.Join(" ", args.Parameters.Skip(1)) : "No reason defined";
 
-            var success =
-                await Db.InsertValues("Reports", SqliteClause.IGNORE,
-                    new SqlValue("UserID", args.Player.UserID),
-                    new SqlValue("ReportedID", user.ID),
-                    new SqlValue("Message", message),
-                    new SqlValue("Position", args.TPlayer.position.X + ":" + args.TPlayer.position.Y),
-                    new SqlValue("Time", 120));
+			var success =
+				Db.Query("INSERT INTO Reports (UserID, ReportedID, Message, Position, Time) VALUES "
+					+ " (@0, @1, @2, @3, @4)",
+					args.Player.UserID, user.ID, message,
+					args.TPlayer.position.X + ":" + args.TPlayer.position.Y, 120) > 0;
 
-            var id = await Db.RetrieveValues("Reports", "ReportID",
-                new SqlValue("UserID", args.Player.UserID),
-                new SqlValue("Message", message));
+
+			int id = 0;
+
+			using (var reader = Db.QueryReader("SELECT ReportID FROM Reports WHERE UserID = @0 AND Message = @1",
+				args.Player.UserID, message))
+			{
+				if (reader.Read())
+					id = reader.Get<int>("ReportID");
+			}
 
             if (success)
             {
@@ -316,7 +314,7 @@ namespace Reports
                 args.Player.SendSuccessMessage("Position: ({0},{1})", args.TPlayer.position.X, args.TPlayer.position.Y);
                 TShock.Players.Where(p => p.Group.HasPermission("reports.report.check"))
                     .ForEach(p => p.SendWarningMessage("{0} has filed a new report. Use /creports {1} to view it.",
-                        args.Player.Name, id[0]));
+                        args.Player.Name, id));
             }
             else
                 args.Player.SendErrorMessage("Report was not successful. Please check logs for details");

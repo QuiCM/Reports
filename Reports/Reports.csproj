@@ -63,6 +63,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Database.cs" />
     <Compile Include="Reports.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
