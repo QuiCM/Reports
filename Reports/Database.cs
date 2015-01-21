@@ -25,8 +25,8 @@ namespace Reports
 			   new SqlColumn("ReportID", MySqlDbType.Int32) { AutoIncrement = true, Primary = true },
 			   new SqlColumn("UserID", MySqlDbType.Int32),
 			   new SqlColumn("ReportedID", MySqlDbType.Int32),
-			   new SqlColumn("Message", MySqlDbType.VarChar),
-			   new SqlColumn("Position", MySqlDbType.VarChar),
+			   new SqlColumn("Message", MySqlDbType.Text),
+			   new SqlColumn("Position", MySqlDbType.Text),
 			   new SqlColumn("Time", MySqlDbType.Int32));
 
 			sqlCreator.EnsureExists(table);
