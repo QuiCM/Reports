@@ -1,16 +1,9 @@
 ﻿using System;
-using System.Data;
 using System.Collections.Generic;
 using System.Linq;
-using System.IO;
-using System.Timers;
-using Mono.Data.Sqlite;
-using MySql.Data.MySqlClient;
 using Terraria;
 using TerrariaApi.Server;
-
 using TShockAPI;
-using TShockAPI.DB;
 using TShockAPI.Hooks;
 
 namespace Reports
@@ -21,7 +14,7 @@ namespace Reports
 		private static Database Db { get; set; }
 
         private readonly Vector2[] _teleports = new Vector2[255];
-        private Report[] _report = new Report[255];
+        private readonly Report[] _report = new Report[255];
 
         public override string Author
         {
@@ -312,9 +305,13 @@ namespace Reports
                 args.Player.SendSuccessMessage("Successfully filed a report for player {0}.", user.Name);
                 args.Player.SendSuccessMessage("Reason: {0}", message);
                 args.Player.SendSuccessMessage("Position: ({0},{1})", args.TPlayer.position.X, args.TPlayer.position.Y);
-                TShock.Players.Where(p => p.Group.HasPermission("reports.report.check"))
-                    .ForEach(p => p.SendWarningMessage("{0} has filed a new report. Use /creports {1} to view it.",
-                        args.Player.Name, id));
+                TShock.Players.Where(p => p != null && p.ConnectionAlive && p.RealPlayer)
+                    .ForEach(p =>
+                    {
+                        if (p.Group.HasPermission("reports.report.check"))
+                            p.SendWarningMessage("{0} has filed a new report. Use /creports {1} to view it.",
+                                args.Player.Name, id);
+                    });
             }
             else
                 args.Player.SendErrorMessage("Report was not successful. Please check logs for details");
