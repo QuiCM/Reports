@@ -80,7 +80,7 @@ namespace Reports
 
 		public bool DeleteValue(string column, object value)
 		{
-		    var query = string.Format("DELETE FROM Reports WHERE {0} = @1", column);
+		    var query = string.Format("DELETE FROM Reports WHERE {0} = @0", column);
 			return _db.Query(query, value) > 0;
 		}
 	}
