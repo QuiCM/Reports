@@ -13,8 +13,8 @@ namespace Reports
     {
 		private static Database Db { get; set; }
 
-        private readonly Vector2[] _teleports = new Vector2[255];
-        private readonly Report[] _report = new Report[255];
+        private readonly Vector2[] _teleports = new Vector2[Main.player.Length];
+        private readonly Report[] _report = new Report[Main.player.Length];
 
         public override string Author
         {
@@ -195,62 +195,69 @@ namespace Reports
                         HeaderFormat = "Report IDs. Use /checkreports <id> to check a specific report. Page {0} of {1}",
                         FooterFormat = "Use /checkreports page {0} for more"
                     });
-                return;
             }
 
-            if (args.Parameters.Count > 1 &&
-                String.Equals(args.Parameters[0], "page", StringComparison.InvariantCultureIgnoreCase))
+            else if (args.Parameters.Count >= 1)
             {
-                int pageNumber;
-                if (!PaginationTools.TryParsePageNumber(args.Parameters, 2, args.Player, out pageNumber))
-                    return;
+                if (String.Equals(args.Parameters[0], "page", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    int pageNumber;
+                    if (!PaginationTools.TryParsePageNumber(args.Parameters, 2, args.Player, out pageNumber))
+                        return;
 
-                PaginationTools.SendPage(args.Player, pageNumber, reports.Select(r => r.ReportID).ToList(),
-                    new PaginationTools.Settings
+                    PaginationTools.SendPage(args.Player, pageNumber, reports.Select(r => r.ReportID).ToList(),
+                        new PaginationTools.Settings
+                        {
+                            HeaderFormat =
+                                "Report IDs. Use /checkreports <id> to check a specific report. Page {0} of {1}",
+                            FooterFormat = "Use /checkreports page {0} for more"
+                        });
+                    return;
+                }
+
+                Report report;
+                int searchId;
+                if (!int.TryParse(args.Parameters[0], out searchId))
+                {
+                    var search = string.Join(" ", args.Parameters.Skip(1));
+                    var matches = reports.Where(r => r.Message.ToLower().Contains(search.ToLower())).ToList();
+                    if (matches.Count < 1)
                     {
-                        HeaderFormat = "Report IDs. Use /checkreports <id> to check a specific report. Page {0} of {1}",
-                        FooterFormat = "Use /checkreports page {0} for more"
-                    });
-                return;
-            }
+                        args.Player.SendErrorMessage("No report messages matched your search '{0}'", search);
+                        return;
+                    }
+                    if (matches.Count > 1)
+                    {
+                        SendMultipleMatches(args.Player, matches.Select(m => m.ReportID));
+                        return;
+                    }
+                    report = matches[0];
+                }
+                else
+                {
+                    report = reports.FirstOrDefault(r => r.ReportID == searchId);
+                    if (report == null)
+                    {
+                        args.Player.SendErrorMessage("No report ID matched your search '{0}'", searchId);
+                        return;
+                    }
+                }
 
-            int searchId;
-            Report report;
-            if (!int.TryParse(args.Parameters[0], out searchId))
-            {
-                var search = string.Join(" ", args.Parameters.Skip(1));
-                var matches = reports.Where(r => r.Message.ToLower().Contains(search.ToLower())).ToList();
-                if (matches.Count < 1)
+                args.Player.SendSuccessMessage("Report ID: {0}", report.ReportID);
+                args.Player.SendSuccessMessage("Reported user: {0}", TShock.Users.GetUserByID(report.ReportedID).Name);
+                args.Player.SendSuccessMessage("Reported by: {0} at position ({1})",
+                    TShock.Users.GetUserByID(report.UserID).Name, report.x + "," + report.y);
+                args.Player.SendSuccessMessage("Report reason: {0}", report.Message);
+                if (args.Player.Index > _teleports.Length || args.Player.Index < 0)
                 {
-                    args.Player.SendErrorMessage("No report messages matched your search '{0}'", search);
+                    args.Player.SendWarningMessage("Failed to assign a teleport for this report.");
+                    args.Player.SendWarningMessage("Please make sure you are logged in while using this command");
                     return;
                 }
-                if (matches.Count > 1)
-                {
-                    SendMultipleMatches(args.Player, matches.Select(m => m.ReportID));
-                    return;
-                }
-                report = matches[0];
+                _teleports[args.Player.Index] = new Vector2(report.x, report.y);
+                _report[args.Player.Index] = report;
+                args.Player.SendWarningMessage("Use /rteleport to move to the location the report was made.");
             }
-            else
-            {
-                report = reports.FirstOrDefault(r => r.ReportID == searchId);
-                if (report == null)
-                {
-                    args.Player.SendErrorMessage("No report ID matched your search '{0}'", searchId);
-                    return;
-                }
-            }
-
-            args.Player.SendSuccessMessage("Report ID: {0}", report.ReportID);
-            args.Player.SendSuccessMessage("Reported user: {0}", TShock.Users.GetUserByID(report.ReportedID).Name);
-            args.Player.SendSuccessMessage("Reported by: {0} at position ({1})",
-                TShock.Users.GetUserByID(report.UserID).Name,
-                report.x + "," + report.y);
-            args.Player.SendSuccessMessage("Report reason: {0}", report.Message);
-            _teleports[args.Player.Index] = new Vector2(report.x, report.y);
-            _report[args.Player.Index] = report;
-            args.Player.SendWarningMessage("Use /rteleport to move to the location the report was made.");
         }
 
         private void Report(CommandArgs args)
