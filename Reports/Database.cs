@@ -29,7 +29,7 @@ namespace Reports
 			   new SqlColumn("Position", MySqlDbType.Text),
 			   new SqlColumn("Time", MySqlDbType.Int32));
 
-			sqlCreator.EnsureExists(table);
+			sqlCreator.EnsureTableStructure(table);
 		}
 
 		public static Database InitDb(string name)
@@ -46,7 +46,7 @@ namespace Reports
 					var host = TShock.Config.MySqlHost.Split(':');
 					db = new MySqlConnection
 					{
-						ConnectionString = String.Format("Server={0}; Port={1}; Database={2}; Uid={3}; Pwd={4}",
+						ConnectionString = string.Format("Server={0}; Port={1}; Database={2}; Uid={3}; Pwd={4}",
 							host[0],
 							host.Length == 1 ? "3306" : host[1],
 							TShock.Config.MySqlDbName,
@@ -57,7 +57,7 @@ namespace Reports
 				}
 				catch (MySqlException x)
 				{
-					Log.Error(x.ToString());
+					TShock.Log.Error(x.ToString());
 					throw new Exception("MySQL not setup correctly.");
 				}
 			}

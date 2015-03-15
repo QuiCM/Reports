@@ -8,7 +8,7 @@ using TShockAPI.Hooks;
 
 namespace Reports
 {
-    [ApiVersion(1, 16)]
+    [ApiVersion(1, 17)]
     public class Reports : TerrariaPlugin
     {
 		private static Database Db { get; set; }
@@ -94,14 +94,18 @@ namespace Reports
 
         private void OnGreetPlayer(GreetPlayerEventArgs args)
         {
-            if (TShock.Players[args.Who].IsLoggedIn)
-                OnPlayerPostLogin(new PlayerPostLoginEventArgs(TShock.Players[args.Who]));
+	        if (TShock.Players[args.Who].IsLoggedIn)
+	        {
+		        OnPlayerPostLogin(new PlayerPostLoginEventArgs(TShock.Players[args.Who]));
+	        }
         }
 
         private void OnPlayerPostLogin(PlayerPostLoginEventArgs args)
         {
-            if (!args.Player.Group.HasPermission("reports.report.check"))
-                return;
+	        if (!args.Player.Group.HasPermission("reports.report.check"))
+	        {
+		        return;
+	        }
 
             var reports = new List<Report>();
             using (var reader = Db.QueryReader("SELECT * FROM Reports WHERE Time > 0"))
@@ -124,36 +128,42 @@ namespace Reports
             }
         }
 
-        private void DeleteReports(CommandArgs args)
-        {
-            if (args.Parameters.Count < 1)
-            {
-                args.Player.SendErrorMessage("Invalid usage. /dreports [id] <id2 id3 id4 ... idn>");
-                return;
-            }
-            var failures = new List<int>();
-            var nonparsed = 0;
-            foreach (var str in args.Parameters)
-            {
-                int id;
-                if (!int.TryParse(str, out id))
-                {
-                    args.Player.SendErrorMessage(str + " is not a valid report ID and has been skipped");
-                    nonparsed++;
-                    continue;
-                }
-                if (!Db.DeleteValue("ReportID", id))
-					failures.Add(id);
-            }
-            if (failures.Count > 0)
-                args.Player.SendErrorMessage("The following reports failed to be deleted: {0}",
-                    string.Join(", ", failures));
-            else
-                args.Player.SendSuccessMessage("Deleted {0} report{1}.", args.Parameters.Count - nonparsed,
-                    Suffix(args.Parameters.Count - nonparsed));
-        }
+	    private void DeleteReports(CommandArgs args)
+	    {
+		    if (args.Parameters.Count < 1)
+		    {
+			    args.Player.SendErrorMessage("Invalid usage. /dreports [id] <id2 id3 id4 ... idn>");
+			    return;
+		    }
+		    var failures = new List<int>();
+		    var nonparsed = 0;
+		    foreach (var str in args.Parameters)
+		    {
+			    int id;
+			    if (!int.TryParse(str, out id))
+			    {
+				    args.Player.SendErrorMessage(str + " is not a valid report ID and has been skipped");
+				    nonparsed++;
+				    continue;
+			    }
+			    if (!Db.DeleteValue("ReportID", id))
+			    {
+				    failures.Add(id);
+			    }
+		    }
+		    if (failures.Count > 0)
+		    {
+			    args.Player.SendErrorMessage("The following reports failed to be deleted: {0}",
+				    string.Join(", ", failures));
+		    }
+		    else
+		    {
+			    args.Player.SendSuccessMessage("Deleted {0} report{1}.", args.Parameters.Count - nonparsed,
+				    Suffix(args.Parameters.Count - nonparsed));
+		    }
+	    }
 
-        private void RTeleport(CommandArgs args)
+	    private void RTeleport(CommandArgs args)
         {
             if (_teleports[args.Player.Index] == new Vector2())
             {
@@ -202,8 +212,10 @@ namespace Reports
                 if (String.Equals(args.Parameters[0], "page", StringComparison.InvariantCultureIgnoreCase))
                 {
                     int pageNumber;
-                    if (!PaginationTools.TryParsePageNumber(args.Parameters, 2, args.Player, out pageNumber))
-                        return;
+	                if (!PaginationTools.TryParsePageNumber(args.Parameters, 2, args.Player, out pageNumber))
+	                {
+		                return;
+	                }
 
                     PaginationTools.SendPage(args.Player, pageNumber, reports.Select(r => r.ReportID).ToList(),
                         new PaginationTools.Settings
@@ -304,24 +316,30 @@ namespace Reports
 				args.Player.UserID, message))
 			{
 				if (reader.Read())
+				{
 					id = reader.Get<int>("ReportID");
+				}
 			}
 
-            if (success)
-            {
-                args.Player.SendSuccessMessage("Successfully filed a report for player {0}.", user.Name);
-                args.Player.SendSuccessMessage("Reason: {0}", message);
-                args.Player.SendSuccessMessage("Position: ({0},{1})", args.TPlayer.position.X, args.TPlayer.position.Y);
-                TShock.Players.Where(p => p != null && p.ConnectionAlive && p.RealPlayer)
-                    .ForEach(p =>
-                    {
-                        if (p.Group.HasPermission("reports.report.check"))
-                            p.SendWarningMessage("{0} has filed a new report. Use /creports {1} to view it.",
-                                args.Player.Name, id);
-                    });
-            }
-            else
-                args.Player.SendErrorMessage("Report was not successful. Please check logs for details");
+	        if (success)
+	        {
+		        args.Player.SendSuccessMessage("Successfully filed a report for player {0}.", user.Name);
+		        args.Player.SendSuccessMessage("Reason: {0}", message);
+		        args.Player.SendSuccessMessage("Position: ({0},{1})", args.TPlayer.position.X, args.TPlayer.position.Y);
+		        TShock.Players.Where(p => p != null && p.ConnectionAlive && p.RealPlayer)
+			        .ForEach(p =>
+			        {
+				        if (p.Group.HasPermission("reports.report.check"))
+				        {
+					        p.SendWarningMessage("{0} has filed a new report. Use /creports {1} to view it.",
+						        args.Player.Name, id);
+				        }
+			        });
+	        }
+	        else
+	        {
+		        args.Player.SendErrorMessage("Report was not successful. Please check logs for details");
+	        }
         }
 
         public Reports(Main game)
