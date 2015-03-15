@@ -18,16 +18,16 @@ namespace Reports
 
 			var sqlCreator = new SqlTableCreator(_db,
 				_db.GetSqlType() == SqlType.Sqlite
-					? (IQueryBuilder)new SqliteQueryCreator()
+					? (IQueryBuilder) new SqliteQueryCreator()
 					: new MysqlQueryCreator());
 
 			var table = new SqlTable("Reports",
-			   new SqlColumn("ReportID", MySqlDbType.Int32) { AutoIncrement = true, Primary = true },
-			   new SqlColumn("UserID", MySqlDbType.Int32),
-			   new SqlColumn("ReportedID", MySqlDbType.Int32),
-			   new SqlColumn("Message", MySqlDbType.Text),
-			   new SqlColumn("Position", MySqlDbType.Text),
-			   new SqlColumn("Time", MySqlDbType.Int32));
+				new SqlColumn("ReportID", MySqlDbType.Int32) {AutoIncrement = true, Primary = true},
+				new SqlColumn("UserID", MySqlDbType.Int32),
+				new SqlColumn("ReportedID", MySqlDbType.Int32),
+				new SqlColumn("Message", MySqlDbType.Text),
+				new SqlColumn("Position", MySqlDbType.Text),
+				new SqlColumn("Time", MySqlDbType.Int32));
 
 			sqlCreator.EnsureTableStructure(table);
 		}
@@ -80,7 +80,7 @@ namespace Reports
 
 		public bool DeleteValue(string column, object value)
 		{
-		    var query = string.Format("DELETE FROM Reports WHERE {0} = @0", column);
+			var query = string.Format("DELETE FROM Reports WHERE {0} = @0", column);
 			return _db.Query(query, value) > 0;
 		}
 	}
