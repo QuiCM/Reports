@@ -52,7 +52,7 @@ namespace Reports
 			ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
 
 			Db = Database.InitDb("Reports");
-
+			
 			Commands.ChatCommands.Add(new Command("reports.report", Report, "report")
 			{
 				AllowServer = false,
@@ -280,6 +280,13 @@ namespace Reports
 				args.Player.SendErrorMessage("Invalid report. Usage: /report <player> [reason]");
 				return;
 			}
+
+			if (!args.Player.IsLoggedIn)
+			{
+				args.Player.SendErrorMessage("You must be logged in to use this command.");
+				return;
+			}
+
 			var user = TShock.Users.GetUsers()
 				.FirstOrDefault(u => u.Name.ToLower().StartsWith(args.Parameters[0].ToLower()));
 			if (user == null)
@@ -306,14 +313,14 @@ namespace Reports
 			var success =
 				Db.Query("INSERT INTO Reports (UserID, ReportedID, Message, Position, Time) VALUES "
 				         + " (@0, @1, @2, @3, @4)",
-					args.Player.UserID, user.ID, message,
+					args.Player.User.ID, user.ID, message,
 					args.TPlayer.position.X + ":" + args.TPlayer.position.Y, 120) > 0;
 
 
 			int id = 0;
 
 			using (var reader = Db.QueryReader("SELECT ReportID FROM Reports WHERE UserID = @0 AND Message = @1",
-				args.Player.UserID, message))
+				args.Player.User.ID, message))
 			{
 				if (reader.Read())
 				{
