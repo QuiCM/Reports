@@ -27,7 +27,7 @@ namespace Reports
 				new SqlColumn("ReportedID", MySqlDbType.Int32),
 				new SqlColumn("Message", MySqlDbType.Text),
 				new SqlColumn("Position", MySqlDbType.Text),
-				new SqlColumn("Time", MySqlDbType.Int32));
+				new SqlColumn("State", MySqlDbType.Int32));
 
 			sqlCreator.EnsureTableStructure(table);
 		}
@@ -82,6 +82,12 @@ namespace Reports
 		{
 			var query = string.Format("DELETE FROM Reports WHERE {0} = @0", column);
 			return _db.Query(query, value) > 0;
+		}
+
+		public bool SetValue(string column, object value, string whereColumn, object where)
+		{
+			var query = string.Format("UPDATE Reports SET {0} = @0 WHERE {1} = @1", column, whereColumn);
+			return _db.Query(query, value, where) > 0;
 		}
 	}
 }
