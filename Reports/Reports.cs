@@ -11,7 +11,7 @@ using TShockAPI.Hooks;
 
 namespace Reports
 {
-	[ApiVersion(1, 17)]
+	[ApiVersion(1, 19)]
 	public class Reports : TerrariaPlugin
 	{
 		private static Database Db { get; set; }
