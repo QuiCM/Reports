@@ -1,17 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
-using TShockAPI.DB;
 using TShockAPI.Hooks;
 
 namespace Reports
 {
-	[ApiVersion(1, 19)]
+	[ApiVersion(1, 20)]
 	public class Reports : TerrariaPlugin
 	{
 		private static Database Db { get; set; }
@@ -36,7 +34,7 @@ namespace Reports
 
 		public override Version Version
 		{
-			get { return new Version(1, 1); }
+			get { return new Version(1, 2); }
 		}
 
 		protected override void Dispose(bool disposing)
