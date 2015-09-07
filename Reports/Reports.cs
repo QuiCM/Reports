@@ -435,7 +435,7 @@ namespace Reports
 
 			int id = 0;
 
-			using (var reader = Db.QueryReader("SELECT Max(ReportID) FROM Reports"))
+			using (var reader = Db.QueryReader("SELECT MAX(ReportID) AS ReportID FROM Reports"))
 			{
 				if (reader.Read())
 				{
@@ -474,7 +474,7 @@ namespace Reports
 			
 			int id = 0;
 
-			using (var reader = Db.QueryReader("SELECT Max(ReportID) FROM Reports"))
+			using (var reader = Db.QueryReader("SELECT MAX(ReportID) AS ReportID FROM Reports"))
 			{
 				if (reader.Read())
 				{
