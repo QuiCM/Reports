@@ -12,6 +12,8 @@ namespace Reports
 	{
 		private IDbConnection _db;
 
+		public bool MySQL { get { return _db.GetSqlType() == SqlType.Mysql; } }
+
 		public Database(IDbConnection db)
 		{
 			_db = db;

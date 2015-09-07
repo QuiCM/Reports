@@ -54,7 +54,7 @@ namespace Reports
 			ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
 
 			SettingsParser.CreateFile(Path.Combine(TShock.SavePath, "ReportSettings.txt"),
-				new []
+				new[]
 				{
 					"Unread string=[Unread]",
 					"Unhandled string=[Unhandled]",
@@ -62,7 +62,7 @@ namespace Reports
 				});
 
 			Db = Database.InitDb("Reports");
-			
+
 			Commands.ChatCommands.Add(new Command("reports.report", Report, "report")
 			{
 				AllowServer = false,
@@ -102,7 +102,7 @@ namespace Reports
 			});
 			Commands.ChatCommands.Add(new Command("reports.report.handle", HandleReports, "hreport", "hreports", "handle")
 			{
-				HelpDesc = new []
+				HelpDesc = new[]
 				{
 					"Set a handled state on a single report, or range of reports.",
 					"This means that they will not be displayed as new reports."
@@ -113,6 +113,15 @@ namespace Reports
 				HelpDesc = new[]
 				{
 					"Reloads the ReportSettings.txt file"
+				}
+			});
+			Commands.ChatCommands.Add(new Command("reports.admin.reseed", ReseedDb, "reseed")
+			{
+				HelpDesc = new[]
+				{
+					"Reseeds the auto-increment value of the reports database.",
+					"You should only use this if you know what the above sentence means.",
+					"Your reports database must be empty for this command to work."
 				}
 			});
 		}
@@ -139,11 +148,6 @@ namespace Reports
 			{
 				while (reader.Read())
 				{
-					reader.Get<int>("ReportId");
-					reader.Get<int>("UserID");
-					reader.Get<int>("ReportedID");
-					reader.Get<string>("Message");
-					reader.Get<string>("Position");
 					bool unread = reader.Get<int>("State") == 0;
 					bool unhandled = reader.Get<int>("State") == 1;
 
@@ -161,6 +165,32 @@ namespace Reports
 			{
 				args.Player.SendWarningMessage("There are {0} unread, and {1} unhandled report{2} to view. Use /checkreports",
 					newCount, unhandledCount, Suffix(unhandledCount));
+			}
+		}
+
+		private void ReseedDb(CommandArgs args)
+		{
+			string query = Db.MySQL ? "ALTER TABLE Reports auto_increment = 0;"
+				: "UPDATE SQLITE_SEQUENCE SET seq = 0 WHERE name = Reports";
+
+			using (var reader = Db.QueryReader("SELECT ReportID FROM Reports"))
+			{
+				if (reader.Read())
+				{
+					args.Player.SendErrorMessage("Your reports database is not empty! Cannot reseed.");
+					return;
+				}
+			}
+
+			bool success = Db.Query(query) > 0;
+
+			if (success)
+			{
+				args.Player.SendSuccessMessage("Successfully reseeded the reports database.");
+			}
+			else
+			{
+				args.Player.SendErrorMessage("Reseed failed.");
 			}
 		}
 
