@@ -5,6 +5,7 @@ using System.Linq;
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
+using TShockAPI.DB;
 using TShockAPI.Hooks;
 
 namespace Reports
@@ -360,7 +361,10 @@ namespace Reports
 					args.Player.SendWarningMessage(String.Format("----{0}-----", prefix));
 				}
 				args.Player.SendSuccessMessage("Report ID: #{0}", report.ReportID);
-				args.Player.SendSuccessMessage("Reported user: {0}", TShock.Users.GetUserByID(report.ReportedID).Name);
+				if (report.ReportedID != -1)
+				{
+					args.Player.SendSuccessMessage("Reported user: {0}", TShock.Users.GetUserByID(report.ReportedID).Name);
+				}
 				args.Player.SendSuccessMessage("Reported by: {0} at position ({1})",
 					TShock.Users.GetUserByID(report.UserID).Name, report.x + "," + report.y);
 				args.Player.SendSuccessMessage("Report reason: {0}", report.Message);
@@ -389,35 +393,49 @@ namespace Reports
 			//report player reason
 			if (args.Parameters.Count < 1)
 			{
-				args.Player.SendErrorMessage("Invalid report. Usage: /report <player> [reason]");
+				args.Player.SendErrorMessage("Invalid report. Usage: /report <player/reason> [reason]");
 				return;
 			}
 
 			var users = TShock.Users.GetUsersByName(args.Parameters[0]);
-			if (users.Count > 1)
-			{
-				TShock.Utils.SendMultipleMatchError(args.Player, users.Select(u => u.Name));
-				return;
-			}
+			User user;
+			string message;
 			if (users.Count == 0)
 			{
-				args.Player.SendErrorMessage("No users matched '{0}'", args.Parameters[0]);
+				message = string.Join(" ", args.Parameters);
+				AddReport(args.Player, message);
 				return;
 			}
-			var user = users[0];
+			if (users.Count > 1)
+			{
+				user = users.FirstOrDefault(u => u.Name.ToLowerInvariant() == args.Parameters[0].ToLowerInvariant());
 
-			var message = args.Parameters.Count > 1 ? string.Join(" ", args.Parameters.Skip(1)) : "No reason defined";
+				if (user == null)
+				{
+					TShock.Utils.SendMultipleMatchError(args.Player, users.Select(u => u.Name));
+					return;
+				}
+			}
+			else
+			{
+				user = users[0];
+			}
 
+			message = args.Parameters.Count > 1 ? string.Join(" ", args.Parameters.Skip(1)) : "No reason defined";
+			AddReport(user, args.Player, message);			
+		}
+
+		private void AddReport(TSPlayer reportee, string message)
+		{
 			var success =
 				Db.Query("INSERT INTO Reports (UserID, ReportedID, Message, Position, State) VALUES "
-				         + " (@0, @1, @2, @3, @4)",
-					args.Player.User.ID, user.ID, message,
-					args.TPlayer.position.X + ":" + args.TPlayer.position.Y, 0) > 0;
-
+						 + "(@0, -1, @1, @2, @3)",
+					reportee.User.ID, message,
+					reportee.TPlayer.position.X + ":" + reportee.TPlayer.position.Y, 0) > 0;
 
 			int id = 0;
 
-			using (var reader = Db.QueryReader("SELECT ReportID FROM Reports WHERE ReportID = (SELECT max(ReportID) FROM Reports)"))
+			using (var reader = Db.QueryReader("SELECT Max(ReportID) FROM Reports"))
 			{
 				if (reader.Read())
 				{
@@ -427,22 +445,61 @@ namespace Reports
 
 			if (success)
 			{
-				args.Player.SendSuccessMessage("Successfully reported {0}.", user.Name);
-				args.Player.SendSuccessMessage("Reason: {0}", message);
-				args.Player.SendSuccessMessage("Position: ({0},{1})", (int)args.TPlayer.position.X, (int)args.TPlayer.position.Y);
+				reportee.SendSuccessMessage("Successfully created report.");
+				reportee.SendSuccessMessage("Reason: {0}", message);
+				reportee.SendSuccessMessage("Position: ({0},{1})", (int)reportee.TPlayer.position.X, (int)reportee.TPlayer.position.Y);
+				TShock.Players.Where(p => p != null && p.ConnectionAlive && p.RealPlayer)
+					.ForEach(p =>
+					{
+						if (p.Group.HasPermission("reports.report.check"))
+						{
+							p.SendWarningMessage("{0} has filed a report. Use /creports {1} to view it.",
+								reportee.Name, id);
+						}
+					});
+			}
+			else
+			{
+				reportee.SendErrorMessage("Report was not successful. Please check logs for details");
+			}
+		}
+
+		private void AddReport(User reported, TSPlayer reportee, string message)
+		{
+			var success =
+				Db.Query("INSERT INTO Reports (UserID, ReportedID, Message, Position, State) VALUES "
+						 + " (@0, @1, @2, @3, @4)",
+					reportee.User.ID, reported.ID, message,
+					reportee.TPlayer.position.X + ":" + reportee.TPlayer.position.Y, 0) > 0;
+			
+			int id = 0;
+
+			using (var reader = Db.QueryReader("SELECT Max(ReportID) FROM Reports"))
+			{
+				if (reader.Read())
+				{
+					id = reader.Get<int>("ReportID");
+				}
+			}
+
+			if (success)
+			{
+				reportee.SendSuccessMessage("Successfully reported {0}.", reported.Name);
+				reportee.SendSuccessMessage("Reason: {0}", message);
+				reportee.SendSuccessMessage("Position: ({0},{1})", (int)reportee.TPlayer.position.X, (int)reportee.TPlayer.position.Y);
 				TShock.Players.Where(p => p != null && p.ConnectionAlive && p.RealPlayer)
 					.ForEach(p =>
 					{
 						if (p.Group.HasPermission("reports.report.check"))
 						{
 							p.SendWarningMessage("{0} has reported {1}. Use /creports {2} to view it.",
-								args.Player.Name, user.Name, id);
+								reportee.Name, reported.Name, id);
 						}
 					});
 			}
 			else
 			{
-				args.Player.SendErrorMessage("Report was not successful. Please check logs for details");
+				reportee.SendErrorMessage("Report was not successful. Please check logs for details");
 			}
 		}
 
