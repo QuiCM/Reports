@@ -408,7 +408,7 @@ namespace Reports
 			}
 			if (users.Count > 1)
 			{
-				user = users.FirstOrDefault(u => u.Name.ToLowerInvariant() == args.Parameters[0].ToLowerInvariant());
+				user = users.FirstOrDefault(u => u.Name.ToLowerInvariant().StartsWith(args.Parameters[0].ToLowerInvariant()));
 
 				if (user == null)
 				{
