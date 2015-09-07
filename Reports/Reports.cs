@@ -171,7 +171,7 @@ namespace Reports
 		private void ReseedDb(CommandArgs args)
 		{
 			string query = Db.MySQL ? "ALTER TABLE Reports auto_increment = 0;"
-				: "UPDATE SQLITE_SEQUENCE SET seq = 0 WHERE name = Reports";
+				: "UPDATE SQLITE_SEQUENCE SET seq = 0 WHERE name = 'Reports'";
 
 			using (var reader = Db.QueryReader("SELECT ReportID FROM Reports"))
 			{
