@@ -18,11 +18,13 @@ namespace Reports
 		{
 			_db = db;
 
+			//Define a table creator that will be responsible for ensuring the database table exists
 			var sqlCreator = new SqlTableCreator(_db,
 				_db.GetSqlType() == SqlType.Sqlite
 					? (IQueryBuilder) new SqliteQueryCreator()
 					: new MysqlQueryCreator());
 
+			//Define the table
 			var table = new SqlTable("Reports",
 				new SqlColumn("ReportID", MySqlDbType.Int32) {AutoIncrement = true, Primary = true},
 				new SqlColumn("UserID", MySqlDbType.Int32),
@@ -31,16 +33,25 @@ namespace Reports
 				new SqlColumn("Position", MySqlDbType.Text),
 				new SqlColumn("State", MySqlDbType.Int32));
 
+			//Create the table if it doesn't exist, update the structure if it exists but is not the same as
+			//the table defined above, or do nothing if the table exists and is correctly structured
 			sqlCreator.EnsureTableStructure(table);
 		}
 
+		/// <summary>
+		/// Creates and returns an instance of <see cref="Database"/>
+		/// </summary>
+		/// <param name="name">File name (without .sqlite) if using SQLite, database name if using MySQL</param>
+		/// <returns>Instance of <see cref="Database"/></returns>
 		public static Database InitDb(string name)
 		{
 			IDbConnection db;
 			if (TShock.Config.StorageType.ToLower() == "sqlite")
-				db =
-					new SqliteConnection(string.Format("uri=file://{0},Version=3",
-						Path.Combine(TShock.SavePath, name + ".sqlite")));
+			{
+				//Creates the database connection
+				db = new SqliteConnection(string.Format("uri=file://{0},Version=3",
+						  Path.Combine(TShock.SavePath, name + ".sqlite")));
+			}
 			else if (TShock.Config.StorageType.ToLower() == "mysql")
 			{
 				try
@@ -65,9 +76,8 @@ namespace Reports
 			}
 			else
 				throw new Exception("Invalid storage type.");
-
-			var database = new Database(db);
-			return database;
+			
+			return new Database(db);
 		}
 
 		public QueryResult QueryReader(string query, params object[] args)

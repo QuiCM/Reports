@@ -13,7 +13,12 @@ namespace Reports
 	[ApiVersion(1, 22)]
 	public class Reports : TerrariaPlugin
 	{
+		private Config config = new Config();
 		private static Database Db { get; set; }
+
+		internal static string UnreadReportHeader;
+		internal static string UnhandledReportHeader;
+		internal static string DefaultReportHeader;
 
 		private readonly Vector2[] _teleports = new Vector2[Main.player.Length];
 		private readonly Report[] _report = new Report[Main.player.Length];
@@ -44,6 +49,7 @@ namespace Reports
 			{
 				PlayerHooks.PlayerPostLogin -= OnPlayerPostLogin;
 				ServerApi.Hooks.NetGreetPlayer.Deregister(this, OnGreetPlayer);
+				ServerApi.Hooks.ServerChat.Deregister(this, OnServerChat);
 			}
 			base.Dispose(disposing);
 		}
@@ -52,14 +58,18 @@ namespace Reports
 		{
 			PlayerHooks.PlayerPostLogin += OnPlayerPostLogin;
 			ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreetPlayer);
+			ServerApi.Hooks.ServerChat.Register(this, OnServerChat);
 
-			SettingsParser.CreateFile(Path.Combine(TShock.SavePath, "ReportSettings.txt"),
-				new[]
-				{
-					"Unread string=[Unread]",
-					"Unhandled string=[Unhandled]",
-					"Default string=null"
-				});
+			string path = Path.Combine(TShock.SavePath, "Reports.json");
+			if (!File.Exists(path))
+			{
+				config.Write(path);
+			}
+			config.Read(path);
+
+			UnreadReportHeader = config.UnreadReportHeader;
+			UnhandledReportHeader = config.UnhandledReportHeader;
+			DefaultReportHeader = config.DefaultReportHeader;
 
 			Db = Database.InitDb("Reports");
 
@@ -124,6 +134,29 @@ namespace Reports
 					"Your reports database must be empty for this command to work."
 				}
 			});
+		}
+
+		private void OnServerChat(ServerChatEventArgs args)
+		{
+			//Get the player who sent the message
+			TSPlayer ply = TShock.Players[args.Who];
+			if (ply == null)
+			{
+				//if the player is null, return straight away.
+				return;
+			}
+
+			//Check each phrase to see if it's contained in the text
+			foreach (KeyValuePair<string, string> pair in config.PhraseWarnings)
+			{
+				if (args.Text.Contains(pair.Key))
+				{
+					//if it is, send the assosciated message
+					ply.SendMessage($"<From ChatWatch> {pair.Value}", Color.MediumPurple);
+					//then break, so we don't send multiple messages if multiple phrases are contained
+					break;
+				}
+			}
 		}
 
 		private void OnGreetPlayer(GreetPlayerEventArgs args)
@@ -196,26 +229,18 @@ namespace Reports
 
 		private void ReloadSettings(CommandArgs args)
 		{
-			if (args.Parameters.Count > 0)
+			string path = Path.Combine(TShock.SavePath, "Reports.json");
+			if (!File.Exists(path))
 			{
-				if (args.Parameters[0].ToLowerInvariant() == "recreate")
-				{
-					SettingsParser.CreateFile(Path.Combine(TShock.SavePath, "ReportSettings.txt"),
-						new[]
-						{
-							"Unread string=[Unread]",
-							"Unhandled string=[Unhandled]",
-							"Default string=null"
-						});
+				config.Write(path);
+			}
+			config.Read(path);
 
-					args.Player.SendSuccessMessage("Recreated ReportSettings.txt");
-				}
-			}
-			else
-			{
-				SettingsParser.LoadFromFile(Path.Combine(TShock.SavePath, "ReportSettings.txt"));
-				args.Player.SendSuccessMessage("Reloaded ReportSettings.txt");
-			}
+			UnreadReportHeader = config.UnreadReportHeader;
+			UnhandledReportHeader = config.UnhandledReportHeader;
+			DefaultReportHeader = config.DefaultReportHeader;
+
+			args.Player.SendSuccessMessage("Reloaded Reports.json");
 		}
 
 		private void HandleReports(CommandArgs args)
@@ -384,11 +409,10 @@ namespace Reports
 						return;
 					}
 				}
-
-				string prefix = report.GetPrefix();
-				if (prefix != string.Empty)
+				
+				if (report.Header != string.Empty)
 				{
-					args.Player.SendWarningMessage(String.Format("----{0}-----", prefix));
+					args.Player.SendWarningMessage(string.Format("----{0}-----", report.Header));
 				}
 				args.Player.SendSuccessMessage("Report ID: #{0}", report.ReportID);
 				if (report.ReportedID != -1)
@@ -560,6 +584,11 @@ namespace Reports
 		public float y;
 		public ReportState State;
 
+		/// <summary>
+		/// Gets the header value of this report based on its <see cref="ReportState"/>
+		/// </summary>
+		public string Header { get { return GetHeader(); } }
+
 		public Report(int id, int userid, int reporterid, string message, string xy, int state)
 		{
 			ReportID = id;
@@ -571,56 +600,29 @@ namespace Reports
 			State = (ReportState)state;
 		}
 
-		public string GetPrefix()
+		/// <summary>
+		/// Gets the report header for this report based on its current <see cref="ReportState"/>
+		/// </summary>
+		/// <param name="cfg"></param>
+		/// <returns></returns>
+		private string GetHeader()
 		{
-			string prefix = string.Empty;
-			if (State == ReportState.Unhandled)
+			switch (State)
 			{
-				SettingsParser.Get("Unhandled string", ref prefix);
-				if (prefix == "null")
-				{
-					return string.Empty;
-				}
-				return prefix;
+				case ReportState.Unread:
+					return Reports.UnreadReportHeader;
+				case ReportState.Unhandled:
+					return Reports.UnhandledReportHeader;
+				case ReportState.Handled:
+					return Reports.DefaultReportHeader;
 			}
 
-			if (State == ReportState.Unread)
-			{
-				SettingsParser.Get("Unread string", ref prefix);
-				if (prefix == "null")
-				{
-					return string.Empty;
-				}
-				return prefix;
-			}
-
-			return prefix;
+			return string.Empty;
 		}
 
 		public override string ToString()
 		{
-			string prefix = string.Empty;
-			if (State == ReportState.Unhandled)
-			{
-				SettingsParser.Get("Unhandled string", ref prefix);
-				if (prefix == "null")
-				{
-					prefix = string.Empty;
-				}
-				return String.Format("{0} {1}", prefix, ReportID);
-			}
-
-			if (State == ReportState.Unread)
-			{
-				SettingsParser.Get("Unread string", ref prefix);
-				if (prefix == "null")
-				{
-					prefix = string.Empty;
-				}
-				return String.Format("{0} {1}", prefix, ReportID);
-			}
-
-			return ReportID.ToString();
+			return $"{Header} {ReportID}";
 		}
 	}
 
