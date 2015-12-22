@@ -72,6 +72,9 @@ namespace Reports
 			{
 				Config c = JsonConvert.DeserializeObject<Config>(sr.ReadToEnd());
 				PhraseWarnings = c.PhraseWarnings;
+				UnreadReportHeader = c.UnreadReportHeader;
+				UnhandledReportHeader = c.UnhandledReportHeader;
+				DefaultReportHeader = c.DefaultReportHeader;
 			}
 		}
 	}
