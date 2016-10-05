@@ -10,7 +10,7 @@ using TShockAPI.Hooks;
 
 namespace Reports
 {
-	[ApiVersion(1, 23)]
+	[ApiVersion(1, 25)]
 	public class Reports : TerrariaPlugin
 	{
 		private Config config = new Config();
