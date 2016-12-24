@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Xna.Framework;
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
@@ -10,7 +11,7 @@ using TShockAPI.Hooks;
 
 namespace Reports
 {
-	[ApiVersion(1, 25)]
+	[ApiVersion(2, 0)]
 	public class Reports : TerrariaPlugin
 	{
 		private Config config = new Config();
